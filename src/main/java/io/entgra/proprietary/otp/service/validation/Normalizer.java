@@ -59,21 +59,19 @@ public class Normalizer {
         }
 
         String coreDigits = extractCoreMobileNumber(cleaned);
-        if (coreDigits == null || !coreDigits.matches("^7\\d{8}$")) {
+
+        // validate core digits against configured regex (default "^7\\d{8}$")
+        if (coreDigits == null || !coreDigits.matches(otpProperties.getCoreDigits())) {
             return null;
         }
 
-        // Determine the target format based on gateway regex
+        // Country code is mandatory to build the gateway-formatted number.
         String normalized;
-        if (gatewayRegex.contains("\\+94")) {
-            normalized = "+94" + coreDigits;
-        } else if (gatewayRegex.contains("94")) {
-            normalized = "94" + coreDigits;
-        } else if (gatewayRegex.contains("07")) {
-            normalized = "0" + coreDigits;
-        } else {
-            normalized = "94" + coreDigits;
+        String countryCode = otpProperties.getCountryCode();
+        if (countryCode == null || countryCode.trim().isEmpty()) {
+            return null;
         }
+        normalized =  countryCode + coreDigits;
 
         // Verify it matches the gateway regex
         if (isValidMobileGatewayFormat(normalized)) {
@@ -89,7 +87,7 @@ public class Normalizer {
      * @param mobileNumber The mobile number to extract core from
      * @return The core mobile number in format "7XXXXXXXX" or null if invalid
      */
-    public static String extractCoreMobileNumber(String mobileNumber) {
+    public String extractCoreMobileNumber(String mobileNumber) {
         if (mobileNumber == null || mobileNumber.trim().isEmpty()) {
             return null;
         }
@@ -97,18 +95,41 @@ public class Normalizer {
         // Remove any spaces, dashes, or other non-digit characters except +
         String cleaned = mobileNumber.replaceAll("[\\s\\-\\(\\)]", "");
 
-        if (cleaned.startsWith("+94") && cleaned.length() == 12 && cleaned.matches("\\+947\\d{8}")) {
-            // Format: +947XXXXXXXX -> extract 7XXXXXXXX
-            return cleaned.substring(3);
-        } else if (cleaned.startsWith("94") && cleaned.length() == 11 && cleaned.matches("947\\d{8}")) {
-            // Format: 947XXXXXXXX -> extract 7XXXXXXXX
-            return cleaned.substring(2);
-        } else if (cleaned.startsWith("0") && cleaned.length() == 10 && cleaned.matches("0\\d{9}")) {
-            // Format: 07XXXXXXXX -> extract 7XXXXXXXX
-            return cleaned.substring(1);
+        String countryCode = otpProperties.getCountryCode();
+        int coreLength = otpProperties.getCoreLength();
+        String trunkPrefix = otpProperties.getTrunkPrefix();
+        String core = null;
+
+        // Example : Format: +947XXXXXXXX -> extract 7XXXXXXXX
+        if (countryCode != null && cleaned.startsWith(countryCode)) {
+            core = cleaned.substring(countryCode.length());
+        }
+        // Example : Format: 947XXXXXXXX -> extract 7XXXXXXXX
+        String countryCodeNoPlus = countryCode != null ? countryCode.replace("+","") : null;
+        if (countryCodeNoPlus != null && cleaned.startsWith(countryCodeNoPlus)) {
+            core = cleaned.substring(countryCodeNoPlus.length());
+        }
+        // Example : Format: 07XXXXXXXX -> extract 7XXXXXXXX
+        if (trunkPrefix != null && cleaned.startsWith(trunkPrefix)) {
+            core = cleaned.substring(trunkPrefix.length());
         }
 
-        return null;
+        // Validation before return
+        if (core == null) {
+            return null;
+        }
+        // Enforce exact core length when a positive length is configured
+        if (coreLength > 0 && core.length() != coreLength) {
+            return null;
+        }
+
+        String coreRegex = otpProperties.getCoreDigits();
+        // Validate core digits against configured regex when provided
+        if (coreRegex != null && !coreRegex.trim().isEmpty() && !core.matches(coreRegex)) {
+            return null;
+        }
+
+        return core;
     }
 
     private String getApiRegex() {

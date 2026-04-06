@@ -40,8 +40,13 @@ public class OtpProperties {
     private int requestTimeoutSeconds = 10;
 
     // Mobile Number validation/normalization
-    private String mobileApiRegex;
-    private String mobileGatewayRegex;
+    // Use E.126 format for country code and ensure regex patterns are consistent with that
+    private String mobileApiRegex = "^(?:07|\\\\+947|947)\\\\d{8}$";
+    private String mobileGatewayRegex = "^+947[0-9]{8}$";
+    private String countryCode = "+94";
+    private String coreDigits = "^7\\d{8}$";
+    private int coreLength = 9;
+    private String trunkPrefix = "0";
 
     public String getResolvedOtpRegex() {
         if (otpRegex != null && !otpRegex.trim().isEmpty()) {
