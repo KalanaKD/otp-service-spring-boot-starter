@@ -12,21 +12,21 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 @ConfigurationProperties(prefix = "otp")
 public class OtpProperties {
 
-    // OtpRequest DTO relate properties
+    // OtpRequest DTO relate properties.
     private int otpLength = 6;
     private String otpRegex;
     private String otpLengthMessage = "OTP must be {length} digits.";
     private String identifierRequiredMessage = "Identifier is required.";
     private String otpRequiredMessage = "OTP is required.";
 
-    // OtpValidationRequest relate properties
+    // OtpValidationRequest relate properties.
     private String flowTypeRequiredMessage = "Flow type is required.";
 
-    // Service runtime properties
+    // Service runtime properties.
     private int expiryMinutes = 5;
     private long cleanupIntervalMs = 300_000L;
 
-    // Delivery configuration (default implementation)
+    // Delivery configuration (default implementation).
     private String emailGatewayUrl;
     private String smsGatewayUrl;
     private String emailTemplateId;
@@ -39,14 +39,28 @@ public class OtpProperties {
     private String smsPriority = "1";
     private int requestTimeoutSeconds = 10;
 
-    // Mobile Number validation/normalization
-    // Use E.126 format for country code and ensure regex patterns are consistent with that
+    // Mobile Number validation/normalization.
+    // Use E.126 format for country code and ensure regex patterns are consistent with that.
     private String mobileApiRegex = "^(?:07|\\\\+947|947)\\\\d{8}$";
-    private String mobileGatewayRegex = "^+947[0-9]{8}$";
+    private String mobileGatewayRegex = "^\\+947[0-9]{8}$";
     private String countryCode = "+94";
     private String coreDigits = "^7\\d{8}$";
     private int coreLength = 9;
     private String trunkPrefix = "0";
+
+    // Optional OTP table name override.
+    private String tableName;
+
+    // Optional database type override (auto-detected when not set).
+    private DatabaseType databaseType;
+
+    // Database Types.
+    public enum DatabaseType{
+        MySQL,
+        Postgresql,
+        Mssql,
+        Oracle
+    }
 
     public String getResolvedOtpRegex() {
         if (otpRegex != null && !otpRegex.trim().isEmpty()) {
