@@ -6,6 +6,7 @@ import io.entgra.proprietary.otp.service.config.Properties.OtpProperties;
 import io.entgra.proprietary.otp.service.dto.OtpChannelAddressStatus;
 import io.entgra.proprietary.otp.service.dto.OtpDeliveryStatus;
 import io.entgra.proprietary.otp.service.dto.OtpValidationResult;
+import io.entgra.proprietary.otp.service.provider.OtpQueryProvider;
 import io.entgra.proprietary.otp.service.service.OtpDeliveryService;
 import io.entgra.proprietary.otp.service.service.OtpService;
 import org.slf4j.Logger;
@@ -21,29 +22,29 @@ import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
-@Service
 public class OtpServiceImpl implements OtpService {
     private static final Logger logger = LoggerFactory.getLogger(OtpServiceImpl.class);
-    private static final String TABLE_NAME = "OTP_STORE";
 
     private final SecureRandom secureRandom = new SecureRandom();
     private final JdbcTemplate jdbcTemplate;
     private final ObjectMapper objectMapper;
     private final OtpDeliveryService otpDeliveryService;
     private final OtpProperties otpProperties;
+    private final OtpQueryProvider otpQueryProvider;
 
     public OtpServiceImpl(JdbcTemplate jdbcTemplate,
                           OtpDeliveryService otpDeliveryService,
                           OtpProperties otpProperties,
-                          ObjectMapper objectMapper) {
+                          ObjectMapper objectMapper,
+                          OtpQueryProvider otpQueryProvider) {
         this.jdbcTemplate = jdbcTemplate;
         this.otpDeliveryService = otpDeliveryService;
         this.otpProperties = otpProperties;
         this.objectMapper = objectMapper;
+        this.otpQueryProvider = otpQueryProvider;
     }
 
     @Override
@@ -92,8 +93,7 @@ public class OtpServiceImpl implements OtpService {
 
         // Store in Database
         jdbcTemplate.update(
-                "INSERT INTO " + TABLE_NAME + " (USERNAME, OTP, OTP_TYPE, METADATA, EXPIRY_TIME, DELIVERY_METHOD, DELIVERY_STATUS, IS_USED) " +
-                        "VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+                otpQueryProvider.insertOtp(),
                 identifier,
                 otp,
                 otpType.name(),
@@ -167,7 +167,7 @@ public class OtpServiceImpl implements OtpService {
 
         // Mark OTP as used since it's valid
         jdbcTemplate.update(
-                "UPDATE " + TABLE_NAME + " SET IS_USED = TRUE WHERE USERNAME = ? AND OTP_TYPE = ? AND OTP = ?",
+                otpQueryProvider.markOtpAsUsed(),
                 identifier,
                 otpType.name(),
                 otp
@@ -193,7 +193,7 @@ public class OtpServiceImpl implements OtpService {
     public void cleanupExpiredOtps() {
         try {
             int deletedCount = jdbcTemplate.update(
-                    "DELETE FROM " + TABLE_NAME + " WHERE EXPIRY_TIME < ? OR IS_USED = TRUE",
+                    otpQueryProvider.cleanUpExpiredOtps(),
                     LocalDateTime.now()
             );
             logger.debug("Cleaned up {} expired/used OTPs", deletedCount);
@@ -211,7 +211,7 @@ public class OtpServiceImpl implements OtpService {
 
         try {
             jdbcTemplate.update(
-                    "UPDATE " + TABLE_NAME + " SET DELIVERY_STATUS = ? WHERE USERNAME = ? AND OTP_TYPE = ?",
+                    otpQueryProvider.updateDeliveryStatus(),
                     statusStr.toString(),
                     identifier,
                     otpType.name()
@@ -225,8 +225,7 @@ public class OtpServiceImpl implements OtpService {
 
     private Optional<OtpData> getActiveOtpWithCode(String identifier, OtpType otpType, String otp) {
         return jdbcTemplate.query(
-                "SELECT OTP, EXPIRY_TIME, IS_USED, METADATA FROM " + TABLE_NAME +
-                        " WHERE USERNAME = ? AND OTP_TYPE = ? AND OTP = ? AND IS_USED = FALSE AND EXPIRY_TIME > ?",
+                otpQueryProvider.findActiveOtp(),
                 new Object[]{identifier, otpType.name(), otp, LocalDateTime.now()},
                 otpRowMapper
         ).stream().findFirst();
@@ -235,13 +234,13 @@ public class OtpServiceImpl implements OtpService {
     private void deleteOtp(String identifier, OtpType otpType, boolean deleteAllOtp) {
         if (deleteAllOtp) {
             jdbcTemplate.update(
-                    "DELETE FROM " + TABLE_NAME + " WHERE USERNAME = ? AND OTP_TYPE = ?",
+                    otpQueryProvider.deleteAllOtps(),
                     identifier,
                     otpType.name()
             );
         } else {
             jdbcTemplate.update(
-                    "DELETE FROM " + TABLE_NAME + " WHERE USERNAME = ? AND OTP_TYPE = ? AND IS_USED = FALSE",
+                    otpQueryProvider.deleteUnusedOtps(),
                     identifier,
                     otpType.name()
             );
