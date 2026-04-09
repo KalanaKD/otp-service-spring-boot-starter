@@ -91,7 +91,7 @@ public class OtpServiceImpl implements OtpService {
             }
         }
 
-        // Store in Database
+        // Store the newly generated OTP in the consumer database through the configured query provider.
         jdbcTemplate.update(
                 otpQueryProvider.insertOtp(),
                 identifier,
@@ -165,7 +165,7 @@ public class OtpServiceImpl implements OtpService {
             return new OtpValidationResult(false, null, identifier);
         }
 
-        // Mark OTP as used since it's valid
+        // Mark the validated row as used so the same code cannot be replayed.
         jdbcTemplate.update(
                 otpQueryProvider.markOtpAsUsed(),
                 identifier,
@@ -192,6 +192,7 @@ public class OtpServiceImpl implements OtpService {
     @Scheduled(fixedRateString = "${otp.cleanup-interval-ms:300000}") // Run every 5 minutes by default
     public void cleanupExpiredOtps() {
         try {
+            // Periodic cleanup keeps the OTP table small by deleting expired or consumed records.
             int deletedCount = jdbcTemplate.update(
                     otpQueryProvider.cleanUpExpiredOtps(),
                     LocalDateTime.now()
@@ -203,6 +204,7 @@ public class OtpServiceImpl implements OtpService {
     }
 
     private void updateDeliveryStatus(String identifier, OtpType otpType, OtpDeliveryStatus otpDeliveryStatus) {
+        // Compress delivery outcomes into one string so the result can be stored in a simple text column.
         StringBuilder statusStr = new StringBuilder();
         otpDeliveryStatus.getChannelStatus().forEach((ch, st) -> statusStr.append(ch).append(":").append(st).append(","));
         if (statusStr.length() > 0) {
@@ -254,6 +256,7 @@ public class OtpServiceImpl implements OtpService {
     }
 
     private static final RowMapper<OtpData> otpRowMapper = (rs, rowNum) -> new OtpData(
+            // Read the persisted OTP row back from the schema created by Flyway.
             rs.getString("OTP"),
             rs.getTimestamp("EXPIRY_TIME").toLocalDateTime(),
             rs.getBoolean("IS_USED"),
