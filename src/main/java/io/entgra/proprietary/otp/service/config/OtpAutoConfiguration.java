@@ -70,18 +70,13 @@ public class OtpAutoConfiguration {
             databaseType = detectDatabaseType(dataSource);
         }
         String tableName = otpProperties.getTableName();
-        switch (databaseType) {
-            case MySQL:
-                return new MySQLQueryProvider(tableName);
-            case Oracle:
-                return new OracleQueryProvider(tableName);
-            case Mssql:
-                return new MSSQLQueryProvider(tableName);
-            case Postgresql:
-                return new PostgreSQLQueryProvider(tableName);
-            default:
-                throw new IllegalArgumentException("Unknown database type: " + databaseType);
-        }
+        return switch (databaseType) {
+            case MySQL -> new MySQLQueryProvider(tableName);
+            case Oracle -> new OracleQueryProvider(tableName);
+            case Mssql -> new MSSQLQueryProvider(tableName);
+            case Postgresql -> new PostgreSQLQueryProvider(tableName);
+            default -> throw new IllegalArgumentException("Unknown database type: " + databaseType);
+        };
     }
 
     @Bean
@@ -128,6 +123,7 @@ public class OtpAutoConfiguration {
 
         // Loads the database specific schema SQL script from the classpath based on the detected/configured database type.
         Resource script = resourceLoader.getResource("classpath:otp-schema/" + scriptName);
+
         // Verifies the schema script.
         if (!script.exists()) {
             throw new IllegalStateException(String.format("Unable to locate schema resource '%s'", scriptName));
