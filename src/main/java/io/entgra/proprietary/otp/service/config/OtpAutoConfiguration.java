@@ -15,11 +15,16 @@ import io.entgra.proprietary.otp.service.service.impl.OtpDeliveryServiceImpl;
 import io.entgra.proprietary.otp.service.service.impl.OtpServiceImpl;
 import io.entgra.proprietary.otp.service.validation.Normalizer;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
+import org.springframework.core.io.Resource;
+import org.springframework.core.io.ResourceLoader;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.jdbc.datasource.init.DataSourceInitializer;
+import org.springframework.jdbc.datasource.init.ResourceDatabasePopulator;
 
 import javax.sql.DataSource;
 import java.sql.Connection;
@@ -103,5 +108,40 @@ public class OtpAutoConfiguration {
         } catch (SQLException e) {
             throw new RuntimeException("Failed to detect Database type.",e);
         }
+    }
+
+    @Bean
+    @ConditionalOnMissingBean(type = {"org.flywaydb.core.Flyway", "liquibase.integration.spring.SpringLiquibase"})
+    @ConditionalOnBean(DataSource.class)
+    @ConditionalOnProperty(prefix = "otp.schema-init", name = "enabled", havingValue = "true", matchIfMissing = true)
+    public DataSourceInitializer otpSchemaInitializer(DataSource dataSource, OtpProperties otpProperties, ResourceLoader resourceLoader) {
+        OtpProperties.DatabaseType databaseType = otpProperties.getDatabaseType();
+        if (databaseType == null) {
+            databaseType = detectDatabaseType(dataSource);
+        }
+        String scriptName = switch (databaseType) {
+            case MySQL -> "schema-mysql.sql";
+            case Oracle -> "schema-oracle.sql";
+            case Mssql -> "schema-mssql.sql";
+            case Postgresql -> "schema-postgresql.sql";
+        };
+
+        // Loads the database specific schema SQL script from the classpath based on the detected/configured database type.
+        Resource script = resourceLoader.getResource("classpath:otp-schema/" + scriptName);
+        // Verifies the schema script.
+        if (!script.exists()) {
+            throw new IllegalStateException(String.format("Unable to locate schema resource '%s'", scriptName));
+        }
+
+        // Creates a schema populator instance used to execute the selected SQL script during datasource initialization.
+        ResourceDatabasePopulator populator = new ResourceDatabasePopulator();
+        populator.setContinueOnError(false);
+        populator.addScript(script);
+
+        // Creates and binds the initializer to the current Datasource so Spring can run the OTP schema populator on application startup.
+        DataSourceInitializer initializer = new DataSourceInitializer();
+        initializer.setDataSource(dataSource);
+        initializer.setDatabasePopulator(populator);
+        return initializer;
     }
 }
