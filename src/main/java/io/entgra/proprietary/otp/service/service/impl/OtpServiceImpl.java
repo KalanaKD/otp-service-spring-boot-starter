@@ -14,7 +14,6 @@ import org.slf4j.LoggerFactory;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.core.RowMapper;
 import org.springframework.scheduling.annotation.Scheduled;
-import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.security.SecureRandom;
@@ -68,7 +67,7 @@ public class OtpServiceImpl implements OtpService {
         LocalDateTime expiryTime = LocalDateTime.now().plusMinutes(otpProperties.getExpiryMinutes());
 
         String deliveryMethod;
-        List<String> availableChannels = new ArrayList<>();
+        List<String> availableChannels;
         if (otpType == OtpType.FLOW_TOKEN) {
             deliveryMethod = "API";
         } else if (deliveryChannels != null && !deliveryChannels.isEmpty()) {
@@ -207,7 +206,7 @@ public class OtpServiceImpl implements OtpService {
         // Compress delivery outcomes into one string so the result can be stored in a simple text column.
         StringBuilder statusStr = new StringBuilder();
         otpDeliveryStatus.getChannelStatus().forEach((ch, st) -> statusStr.append(ch).append(":").append(st).append(","));
-        if (statusStr.length() > 0) {
+        if (!statusStr.isEmpty()) {
             statusStr.setLength(statusStr.length() - 1);
         }
 
@@ -218,7 +217,7 @@ public class OtpServiceImpl implements OtpService {
                     identifier,
                     otpType.name()
             );
-            logger.debug("Updated delivery status for user {}: {}", identifier, statusStr.toString());
+            logger.debug("Updated delivery status for user {}: {}", identifier, statusStr);
         } catch (Exception e) {
             logger.error("Failed to update delivery status for identifier: {} and type: {}", identifier, otpType, e);
             throw new IllegalStateException("Failed to update delivery status", e);
