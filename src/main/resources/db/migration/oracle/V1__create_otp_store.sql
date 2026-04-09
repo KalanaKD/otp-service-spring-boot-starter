@@ -1,0 +1,20 @@
+BEGIN
+    EXECUTE IMMEDIATE '
+        CREATE TABLE ${otp_table_name} (
+            USERNAME VARCHAR2(255) NOT NULL,
+            OTP VARCHAR2(16) NOT NULL,
+            OTP_TYPE VARCHAR2(64) NOT NULL,
+            METADATA CLOB NULL,
+            EXPIRY_TIME TIMESTAMP NOT NULL,
+            DELIVERY_METHOD VARCHAR2(255) NULL,
+            DELIVERY_STATUS VARCHAR2(255) NULL,
+            IS_USED NUMBER(1) DEFAULT 0 NOT NULL
+        )';
+EXCEPTION
+    WHEN OTHERS THEN
+        IF SQLCODE != -955 THEN
+            RAISE;
+        END IF;
+END;
+/
+
