@@ -76,14 +76,4 @@ public class OtpProperties {
         return otpLengthMessage.replace("{length}", String.valueOf(otpLength));
     }
 
-    // Schema initialization properties
-    private SchemaInit schemaInit = new SchemaInit();
-
-    @Data
-    @NoArgsConstructor
-    @AllArgsConstructor
-    public static class SchemaInit {
-        // Default false, so library does not force DDL in consumer apps.
-        private boolean enabled = false;
-    }
 }
