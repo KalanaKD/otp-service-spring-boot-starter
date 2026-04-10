@@ -31,13 +31,12 @@
 		<flyway.version>11.7.2</flyway.version>
 	</properties>
 	<dependencies>
-		<dependency>
-			<groupId>org.springframework.boot</groupId>
-			<artifactId>spring-boot-starter-web</artifactId>
-		</dependency>
+        <!-- Source: https://mvnrepository.com/artifact/org.springframework.boot/spring-boot-starter-jdbc -->
         <dependency>
             <groupId>org.springframework.boot</groupId>
-            <artifactId>spring-boot-starter-data-jpa</artifactId>
+            <artifactId>spring-boot-starter-jdbc</artifactId>
+            <version>2.7.18</version>
+            <scope>compile</scope>
         </dependency>
 		<dependency>
 			<groupId>org.projectlombok</groupId>
